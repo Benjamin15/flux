@@ -1,0 +1,136 @@
+:root{
+  --c-bg: #0b1020;
+  --c-surface: hsl(230 28% 14%);
+  --c-surface-2: hsl(230 22% 18%);
+  --c-text: hsl(220 20% 92%);
+  --c-muted: hsl(220 12% 70%);
+  --c-accent-300: #4cc9f0;
+  --c-accent-500: #4361ee;
+  --c-accent-600: #3a0ca3;
+  --c-good: #2dd4bf;
+  --c-bad: #fb7185;
+  --shadow: 0 10px 30px hsl(230 60% 6% / .45);
+}
+
+body{
+  margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+  color:var(--c-text); background: radial-gradient(1200px 600px at 10% -20%, #1a2352 0%, transparent 60%),
+    radial-gradient(1200px 600px at 90% -20%, #1b3a6d 0%, transparent 60%), var(--c-bg);
+  line-height:1.6; letter-spacing:.2px; overflow-x:hidden;
+}
+
+body.dark{
+  --c-bg: #f6f7fb;
+  --c-surface: hsl(220 18% 98%);
+  --c-surface-2: hsl(220 16% 96%);
+  --c-text: hsl(220 40% 7%);
+  --c-muted: hsl(219 10% 34%);
+  --shadow: 0 8px 24px hsl(230 30% 60% / .18);
+}
+
+.wrap{ max-width:1100px; margin:0 auto; padding: clamp(12px, 2vw, 24px); }
+
+.site-header{ position: sticky; top:0; backdrop-filter: saturate(1.8) blur(12px); z-index:10; }
+.site-header .wrap{ display:flex; gap:16px; align-items:center; justify-content:space-between; }
+.brand{ font-weight:800; letter-spacing:1px; font-size: clamp(22px, 3vw, 28px); }
+.tags{ display:flex; gap:8px; flex-wrap:wrap; }
+.tag{ background: linear-gradient(90deg, var(--c-accent-300), var(--c-accent-500)); color:white; padding:6px 10px; border-radius:999px; font-size:12px; box-shadow: var(--shadow); }
+.actions{ display:flex; align-items:center; gap:16px; }
+
+.btn{ border:0; padding:10px 14px; border-radius:10px; cursor:pointer; font-weight:600; letter-spacing:.3px; }
+.btn.primary{ background: linear-gradient(90deg, var(--c-accent-500), var(--c-accent-600)); color:white; box-shadow: var(--shadow); }
+.btn:disabled{ opacity:.6; cursor:default; }
+
+.switch{ position:relative; display:inline-block; width:48px; height:28px; }
+.switch input{ display:none; }
+.slider{ position:absolute; cursor:pointer; inset:0; background:var(--c-surface-2); border-radius:999px; box-shadow: var(--shadow); transition:.25s; }
+.slider:before{ content:""; position:absolute; height:20px; width:20px; left:4px; top:4px; background:white; border-radius:999px; transition: .25s; }
+.switch input:checked + .slider{ background: linear-gradient(90deg, var(--c-accent-300), var(--c-accent-500)); }
+.switch input:checked + .slider:before{ transform: translateX(20px); }
+
+.card{ background: var(--c-surface); border:1px solid color-mix(in hsl, var(--c-text), transparent 92%);
+  border-radius:16px; padding: clamp(16px, 2.4vw, 28px); margin: clamp(12px, 2vw, 20px) 0; box-shadow: var(--shadow); opacity:0; transform: translateY(16px); transition: .6s ease; }
+.card.in{ opacity:1; transform:none; }
+
+.hero{ display:grid; grid-template-columns: 1.1fr 1fr; gap:24px; align-items:center; }
+.hero .bullets{ margin:10px 0 0; padding-left:18px; }
+.hero .accent{ background: linear-gradient(90deg, var(--c-accent-300), var(--c-accent-500)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.hero-viz{ min-height:240px; }
+
+.svg{ width:100%; height:auto; }
+.box{ fill: var(--c-surface-2); stroke: color-mix(in hsl, var(--c-text), transparent 84%); stroke-width:1; }
+.box.strong{ stroke: color-mix(in hsl, var(--c-accent-500), white 30%); }
+.box.small{ height:42px; }
+.box.out{ fill: linear-gradient(145deg, color-mix(in hsl, var(--c-accent-300), white 30%), var(--c-accent-500)); stroke: transparent; }
+.title{ font: 700 13px/1.2 ui-sans-serif, system-ui; text-anchor: middle; dominant-baseline: middle; fill: var(--c-text); }
+.small{ font: 600 11px/1.2 ui-sans-serif, system-ui; text-anchor: middle; dominant-baseline: middle; fill: var(--c-muted); }
+.flow{ stroke: currentColor; stroke-width:1.8; fill:none; color: color-mix(in hsl, var(--c-accent-300), var(--c-accent-500) 45%); }
+
+.fade-in{ opacity:0; transform: translateY(8px); animation: fadeIn .8s ease forwards; animation-delay: var(--d, .05s); }
+@keyframes fadeIn{ to{ opacity:1; transform:none; } }
+
+.grid-2{ display:grid; grid-template-columns: 1fr 1fr; gap:20px; align-items:center; }
+@media (max-width: 900px){ .hero, .grid-2 { grid-template-columns: 1fr; } }
+
+.checklist{ margin:0; padding-left:18px; }
+.checklist li{ margin:6px 0; }
+
+.stack{ position:relative; padding: 20px 12px; display:grid; gap:10px; }
+.stack.small .block{ padding:10px 12px; font-size:12px; }
+.block{ background: linear-gradient(145deg, color-mix(in hsl, var(--c-accent-300), white 30%), var(--c-accent-500)); color:white; padding:14px 16px; border-radius:12px; box-shadow: var(--shadow); transform-origin:left; opacity:.9; }
+.block.b1{ animation: slideIn .8s cubic-bezier(.2,.8,.2,1) both; }
+.block.b2{ animation: slideIn .8s .12s cubic-bezier(.2,.8,.2,1) both; }
+.block.b3{ animation: slideIn .8s .24s cubic-bezier(.2,.8,.2,1) both; }
+.badge{ position:absolute; right:8px; top:8px; font-size:11px; padding:4px 8px; border-radius:999px; background: var(--c-surface-2); border:1px solid color-mix(in hsl, var(--c-text), transparent 90%); color: var(--c-muted); }
+@keyframes slideIn{ from{ opacity:0; transform: translateX(-8px) scale(.98); } to{ opacity:1; transform:none; } }
+
+.lane .token{ fill: var(--c-surface-2); stroke: color-mix(in hsl, var(--c-text), transparent 84%); stroke-width:1; }
+
+.concat.viz{ display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 16px; }
+.concat .token{ display:inline-block; padding:6px 10px; border-radius:10px; font-weight:600; font-size:12px; }
+.concat .token.t{ background: color-mix(in hsl, var(--c-accent-300), white 50%); color:#0b1020; }
+.concat .token.i{ background: color-mix(in hsl, var(--c-accent-500), white 30%); }
+
+.final-out{ position:relative; display:grid; place-items:center; min-height:120px; background: var(--c-surface-2); border-radius:14px; border:1px solid color-mix(in hsl, var(--c-text), transparent 90%); overflow:hidden; }
+.final-out .label{ position:absolute; bottom:10px; font-size:12px; color:var(--c-muted); }
+.pulse{ position:absolute; width:18px; height:18px; border-radius:50%; border:2px solid color-mix(in hsl, var(--c-accent-300), var(--c-accent-500) 40%);
+  animation: ping 2.4s cubic-bezier(.2,.8,.2,1) infinite; }
+.pulse:nth-child(2){ animation-delay:.4s; }
+.pulse:nth-child(3){ animation-delay:.8s; }
+@keyframes ping{ 0%{ transform: scale(.4); opacity:.8; } 60%{ opacity:.25; } 100%{ transform: scale(12); opacity:0; } }
+
+.chips{ display:flex; flex-wrap:wrap; gap:8px; }
+.chip{ padding:6px 10px; border-radius:999px; background: var(--c-surface-2); border:1px solid color-mix(in hsl, var(--c-text), transparent 88%); font-weight:600; font-size:12px; }
+
+/* Liens chip cliquables */
+.chips .chip{ text-decoration:none; color:inherit; transition: .2s ease; }
+.chips .chip:hover{ transform: translateY(-1px); box-shadow: 0 6px 18px hsl(230 60% 6% / .35); }
+
+/* Formules et code blocks légers */
+.formula{ display:block; background: var(--c-surface-2); border:1px solid color-mix(in hsl, var(--c-text), transparent 90%); border-radius:12px; padding:10px 12px; overflow:auto; }
+
+/* Callout box */
+.callout{ border-left:4px solid var(--c-accent-500); background: color-mix(in hsl, var(--c-accent-300), transparent 92%); padding:12px 14px; border-radius:10px; margin-top:10px; }
+
+/* Ancre douce */
+html{ scroll-behavior:smooth; }
+
+/* Retouches de la section TOC */
+#toc .chips{ gap:10px; }
+#toc .chip{ background: var(--c-surface-2); }
+#toc .chip:hover{ background: color-mix(in hsl, var(--c-surface-2), white 8%); }
+
+.muted{ color:var(--c-muted); }
+.small{ font-size:12px; }
+
+/* Global play state to stagger animations */
+.play .fade-in{ animation-play-state: running; }
+
+/* Decorative background */
+.bg{ position:fixed; inset:-20% -10% auto -10%; height: 60vh; z-index:-1; pointer-events:none; background:
+  radial-gradient(40% 60% at 20% 10%, color-mix(in hsl, var(--c-accent-500), white 10%) 0%, transparent 60%),
+  radial-gradient(30% 50% at 80% 0%, color-mix(in hsl, var(--c-accent-300), white 20%) 0%, transparent 60%);
+  filter: blur(40px) saturate(1.2) opacity(.45);
+}
+
+.site-footer{ color:var(--c-muted); font-size:12px; text-align:center; margin: 20px auto 40px; }

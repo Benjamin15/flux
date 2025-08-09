@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FLUX — Architecture du modèle</title>
+  <meta name="description" content="Présentation interactive de l'architecture du modèle FLUX (flow matching transformer)." />
+  <link rel="stylesheet" href="./flux-architecture.css" />
+</head>
+<body>
+  <div class="bg"></div>
+  <header class="site-header">
+    <div class="wrap">
+      <div class="brand">FLUX</div>
+      <div class="tags">
+        <span class="tag">Transformer</span>
+        <span class="tag">Flow Matching</span>
+        <span class="tag">Vision+Texte</span>
+      </div>
+      <div class="actions">
+        <button id="playAll" class="btn primary">Lancer l'animation</button>
+        <label class="switch" title="Mode sombre/clair">
+          <input id="themeToggle" type="checkbox" />
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero card">
+      <div class="hero-text">
+        <h1>Architecture du modèle <span class="accent">FLUX</span></h1>
+        <p>Un Transformer multi-flux pour le flow matching sur séquences image+texte, avec embeddings temporels et guidage optionnel.</p>
+        <ul class="bullets">
+          <li>Flux double: image ↔ texte (DoubleStreamBlock × <code>depth</code>)</li>
+          <li>Flux unique: séquence fusionnée (SingleStreamBlock × <code>depth_single_blocks</code>)</li>
+          <li>Encodages: spatiaux ND, temps, vecteurs conditionnels (<code>y</code>), guidage</li>
+        </ul>
+      </div>
+      <div class="hero-viz">
+        <!-- Mini diagramme d'ensemble -->
+        <svg viewBox="0 0 680 260" class="svg scene" aria-label="Aperçu architecture">
+          <defs>
+            <linearGradient id="grad" x1="0" x2="1">
+              <stop offset="0%" stop-color="var(--c-accent-300)" />
+              <stop offset="100%" stop-color="var(--c-accent-500)" />
+            </linearGradient>
+            <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
+            </marker>
+          </defs>
+          <g class="fade-in">
+            <rect x="18" y="20" width="160" height="80" rx="12" class="box" />
+            <text x="98" y="50" class="title">Entrées</text>
+            <text x="98" y="72" class="small">img, txt, t, y, guidance</text>
+          </g>
+          <g class="fade-in" style="--d:0.1s">
+            <rect x="220" y="20" width="200" height="80" rx="12" class="box" />
+            <text x="320" y="50" class="title">Embeddings</text>
+            <text x="320" y="72" class="small">pe ND, MLP(t), MLP(y), MLP(g)</text>
+          </g>
+          <g class="fade-in" style="--d:0.2s">
+            <rect x="450" y="10" width="210" height="100" rx="12" class="box strong" />
+            <text x="555" y="48" class="title">DoubleStream</text>
+            <text x="555" y="72" class="small">× depth</text>
+          </g>
+          <path class="flow" d="M178 60 H220" marker-end="url(#arrow)" />
+          <path class="flow" d="M420 60 H450" marker-end="url(#arrow)" />
+
+          <g class="fade-in" style="--d:0.35s">
+            <rect x="18" y="150" width="300" height="90" rx="12" class="box" />
+            <text x="168" y="182" class="title">Concat [txt | img]</text>
+          </g>
+          <g class="fade-in" style="--d:0.45s">
+            <rect x="340" y="140" width="200" height="110" rx="12" class="box strong" />
+            <text x="440" y="178" class="title">SingleStream</text>
+            <text x="440" y="202" class="small">× depth_single_blocks</text>
+          </g>
+          <g class="fade-in" style="--d:0.55s">
+            <rect x="560" y="160" width="100" height="70" rx="12" class="box out" />
+            <text x="610" y="198" class="title">Sortie</text>
+          </g>
+          <path class="flow" d="M555 100 C560 126, 540 150, 520 160" marker-end="url(#arrow)" />
+          <path class="flow" d="M540 195 H560" marker-end="url(#arrow)" />
+        </svg>
+      </div>
+    </section>
+
+    <section class="card" id="inputs">
+      <h2>1) Entrées et pré-encodage</h2>
+      <div class="grid-2">
+        <div>
+          <ul class="checklist">
+            <li><strong>img</strong>: (N, T_img, in_channels) → Linear → hidden_size</li>
+            <li><strong>txt</strong>: (N, T_txt, context_in_dim) → Linear → hidden_size</li>
+            <li><strong>t</strong>: timestep → <code>timestep_embedding(256)</code> → MLP → hidden_size</li>
+            <li><strong>y</strong>: vecteur conditionnel (<code>vec_in_dim</code>) → MLP → hidden_size</li>
+            <li><strong>guidance</strong> (optionnel): scalaire → <code>timestep_embedding(256)</code> → MLP → hidden_size</li>
+            <li><strong>PE</strong> ND: <code>EmbedND(dim=hidden_size/num_heads, axes_dim, theta)</code></li>
+          </ul>
+        </div>
+        <div>
+          <svg viewBox="0 0 720 260" class="svg scene" aria-label="Pré-encodage">
+            <defs>
+              <marker id="arrow2" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
+              </marker>
+            </defs>
+            <g class="node fade-in">
+              <rect x="10" y="20" width="120" height="48" rx="10" class="box small" />
+              <text x="70" y="50" class="title">img</text>
+            </g>
+            <g class="node fade-in" style="--d:0.05s">
+              <rect x="10" y="86" width="120" height="48" rx="10" class="box small" />
+              <text x="70" y="116" class="title">txt</text>
+            </g>
+            <g class="node fade-in" style="--d:0.1s">
+              <rect x="10" y="152" width="120" height="48" rx="10" class="box small" />
+              <text x="70" y="182" class="title">t, y, g</text>
+            </g>
+            <g class="node fade-in" style="--d:0.15s">
+              <rect x="180" y="20" width="150" height="48" rx="10" class="box small" />
+              <text x="255" y="50" class="title">img_in</text>
+            </g>
+            <g class="node fade-in" style="--d:0.2s">
+              <rect x="180" y="86" width="150" height="48" rx="10" class="box small" />
+              <text x="255" y="116" class="title">txt_in</text>
+            </g>
+            <g class="node fade-in" style="--d:0.25s">
+              <rect x="180" y="152" width="150" height="48" rx="10" class="box small" />
+              <text x="255" y="182" class="title">time/vector/guid</text>
+            </g>
+            <g class="node fade-in" style="--d:0.3s">
+              <rect x="370" y="53" width="160" height="48" rx="10" class="box small" />
+              <text x="450" y="83" class="title">vec = sum(emb)</text>
+            </g>
+            <g class="node fade-in" style="--d:0.35s">
+              <rect x="370" y="130" width="160" height="48" rx="10" class="box small" />
+              <text x="450" y="160" class="title">PE(ids)</text>
+            </g>
+            <g class="node fade-in" style="--d:0.4s">
+              <rect x="560" y="90" width="150" height="68" rx="12" class="box" />
+              <text x="635" y="122" class="title">États init.</text>
+              <text x="635" y="144" class="small">img_h, txt_h, vec, pe</text>
+            </g>
+
+            <path class="flow" d="M130 44 H180" marker-end="url(#arrow2)" />
+            <path class="flow" d="M130 110 H180" marker-end="url(#arrow2)" />
+            <path class="flow" d="M130 176 H180" marker-end="url(#arrow2)" />
+            <path class="flow" d="M330 176 C360 176, 360 100, 370 100" marker-end="url(#arrow2)" />
+            <path class="flow" d="M330 176 C360 176, 360 156, 370 156" marker-end="url(#arrow2)" />
+            <path class="flow" d="M530 77 C560 80, 560 110, 560 110" marker-end="url(#arrow2)" />
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="double">
+      <h2>2) DoubleStreamBlock × <code>depth</code></h2>
+      <p class="muted">Deux flux synchronisés: un pour l'image, un pour le texte. Chaque bloc applique des attentions multi-têtes et un MLP, conditionnés par <code>vec</code> et modulés par les encodages positionnels <code>pe</code>.</p>
+      <div class="stack">
+        <div class="block b1">DoubleStreamBlock</div>
+        <div class="block b2">DoubleStreamBlock</div>
+        <div class="block b3">DoubleStreamBlock</div>
+        <div class="badge">× depth</div>
+      </div>
+      <svg viewBox="0 0 800 120" class="svg scene" aria-label="Flux double">
+        <defs>
+          <marker id="arrow3" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
+          </marker>
+        </defs>
+        <g class="lane">
+          <rect x="10" y="18" width="130" height="28" rx="8" class="token" />
+          <rect x="150" y="18" width="130" height="28" rx="8" class="token" />
+          <rect x="290" y="18" width="130" height="28" rx="8" class="token" />
+          <text x="75" y="37" class="small">txt_h</text>
+          <text x="215" y="37" class="small">attn/MLP</text>
+          <text x="355" y="37" class="small">txt_h'</text>
+        </g>
+        <g class="lane">
+          <rect x="10" y="74" width="130" height="28" rx="8" class="token" />
+          <rect x="150" y="74" width="130" height="28" rx="8" class="token" />
+          <rect x="290" y="74" width="130" height="28" rx="8" class="token" />
+          <text x="75" y="93" class="small">img_h</text>
+          <text x="215" y="93" class="small">attn/MLP</text>
+          <text x="355" y="93" class="small">img_h'</text>
+        </g>
+        <path class="flow" d="M420 46 H 780" marker-end="url(#arrow3)" />
+        <path class="flow" d="M420 102 H 780" marker-end="url(#arrow3)" />
+      </svg>
+    </section>
+
+    <section class="card" id="single">
+      <h2>3) Concat et SingleStreamBlock × <code>depth_single_blocks</code></h2>
+      <div class="grid-2">
+        <div>
+          <p>On concatène la séquence texte devant la séquence image, puis on traite l'ensemble avec des blocs SingleStream conditionnés par <code>vec</code> et <code>pe</code>.</p>
+          <div class="concat viz">
+            <span class="token t">txt</span>
+            <span class="token t">txt</span>
+            <span class="token t">txt</span>
+            <span class="token i">img</span>
+            <span class="token i">img</span>
+            <span class="token i">img</span>
+          </div>
+          <div class="stack small">
+            <div class="block">SingleStreamBlock</div>
+            <div class="block">SingleStreamBlock</div>
+            <div class="block">SingleStreamBlock</div>
+            <div class="badge">× depth_single_blocks</div>
+          </div>
+        </div>
+        <div>
+          <svg viewBox="0 0 720 180" class="svg scene" aria-label="Flux unique">
+            <defs>
+              <marker id="arrow4" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
+              </marker>
+            </defs>
+            <g class="fade-in">
+              <rect x="20" y="30" width="150" height="46" rx="10" class="box small" />
+              <text x="95" y="58" class="title">[txt|img]</text>
+            </g>
+            <g class="fade-in" style="--d:0.1s">
+              <rect x="210" y="30" width="180" height="46" rx="10" class="box small" />
+              <text x="300" y="58" class="title">SingleStream</text>
+            </g>
+            <g class="fade-in" style="--d:0.2s">
+              <rect x="420" y="30" width="150" height="46" rx="10" class="box small" />
+              <text x="495" y="58" class="title">états'</text>
+            </g>
+            <g class="fade-in" style="--d:0.3s">
+              <rect x="600" y="30" width="100" height="46" rx="10" class="box out" />
+              <text x="650" y="58" class="title">sortie</text>
+            </g>
+            <path class="flow" d="M170 53 H210" marker-end="url(#arrow4)" />
+            <path class="flow" d="M390 53 H420" marker-end="url(#arrow4)" />
+            <path class="flow" d="M570 53 H600" marker-end="url(#arrow4)" />
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="final">
+      <h2>4) Couche finale</h2>
+      <p>La couche <code>LastLayer(hidden_size, 1, out_channels)</code> projette la séquence image traitée vers les canaux de sortie (par patch).</p>
+      <div class="final-out">
+        <div class="pulse"></div>
+        <div class="pulse"></div>
+        <div class="pulse"></div>
+        <div class="label">Prediction (flow / résidus)</div>
+      </div>
+    </section>
+
+    <!-- Sommaire (TOC) inséré après le hero -->
+    <section class="card" id="toc">
+      <h2>Sommaire</h2>
+      <div class="chips">
+        <a class="chip" href="#inputs">Entrées</a>
+        <a class="chip" href="#double">DoubleStream</a>
+        <a class="chip" href="#single">SingleStream</a>
+        <a class="chip" href="#final">Couche finale</a>
+        <a class="chip" href="#params">Hyperparamètres</a>
+        <a class="chip" href="#constraints">Contraintes</a>
+        <a class="chip" href="#guidance">Guidage</a>
+        <a class="chip" href="#lora">LoRA</a>
+        <a class="chip" href="#forward">Forward</a>
+        <a class="chip" href="#resources">Ressources</a>
+        <a class="chip" href="#credits">Utilisation</a>
+      </div>
+    </section>
+
+    <section class="card" id="params">
+      <h2>Hyperparamètres clés</h2>
+      <div class="chips">
+        <span class="chip">hidden_size</span>
+        <span class="chip">num_heads</span>
+        <span class="chip">mlp_ratio</span>
+        <span class="chip">depth</span>
+        <span class="chip">depth_single_blocks</span>
+        <span class="chip">in_channels</span>
+        <span class="chip">out_channels</span>
+        <span class="chip">vec_in_dim</span>
+        <span class="chip">context_in_dim</span>
+        <span class="chip">axes_dim</span>
+        <span class="chip">theta</span>
+        <span class="chip">qkv_bias</span>
+        <span class="chip">guidance_embed</span>
+      </div>
+      <p class="muted small">Inspiré directement de <code>src/flux/model.py</code> — classes <code>Flux</code> et <code>FluxParams</code>.</p>
+    </section>
+
+    <!-- Nouvelles slides ajoutées avant la section crédits -->
+    <section class="card" id="constraints">
+      <h2>5) Contraintes d'architecture</h2>
+      <ul class="checklist">
+        <li><strong>Divisibilité:</strong> <span class="formula">hidden_size % num_heads == 0</span></li>
+        <li><strong>Dimension pos. par tête:</strong> <span class="formula">pe_dim = hidden_size / num_heads</span></li>
+        <li><strong>Encodage ND:</strong> <span class="formula">sum(axes_dim) == pe_dim</span></li>
+        <li><strong>Guidage:</strong> <span class="formula">guidance_embed ? MLPEmbedder : Identity</span></li>
+        <li><strong>Sécurité I/O:</strong> <span class="formula">img.ndim == 3 && txt.ndim == 3</span> sinon <code>ValueError</code></li>
+      </ul>
+      <p class="muted small">Ces vérifications proviennent directement du constructeur de <code>Flux</code> et du <code>forward</code>.</p>
+    </section>
+
+    <section class="card" id="guidance">
+      <h2>6) Guidage et conditions</h2>
+      <p>Le vecteur de condition <code>vec</code> est la somme des embeddings temporels, conditionnels et (optionnel) de guidage:</p>
+      <pre class="formula">vec = time_in(timestep_embedding(t, 256))
+    + vector_in(y)
+    + (guidance_embed ? guidance_in(timestep_embedding(g, 256)) : 0)</pre>
+      <div class="callout">
+        <strong>Note:</strong> si <code>guidance_embed</code> est actif et que <code>guidance == null</code>, une erreur est levée.
+      </div>
+    </section>
+
+    <section class="card" id="lora">
+      <h2>7) LoRA wrapper</h2>
+      <p><code>FluxLoraWrapper</code> remplace dynamiquement les <code>nn.Linear</code> par des couches <em>LinearLoRA</em> à faible rang.</p>
+      <pre class="formula">replace_linear_with_lora(self, max_rank=lora_rank, scale=lora_scale)
+...
+# Ajuster dynamiquement la force de LoRA
+set_lora_scale(scale)</pre>
+      <ul class="checklist">
+        <li><strong>lora_rank</strong>: rang maximal des mises à jour basses-rang.</li>
+        <li><strong>lora_scale</strong>: facteur d'échelle appliqué aux deltas LoRA.</li>
+      </ul>
+    </section>
+
+    <section class="card" id="forward">
+      <h2>8) Cheat Sheet du forward</h2>
+      <ol>
+        <li>Projeter <code>img</code> et <code>txt</code> en <code>hidden_size</code> via <code>img_in</code> et <code>txt_in</code>.</li>
+        <li>Construire <code>vec</code> à partir de <code>t</code>, <code>y</code> et éventuellement <code>guidance</code>.</li>
+        <li>Concaténer les <code>ids</code> (<code>txt_ids|img_ids</code>) et générer <code>pe = EmbedND(ids)</code>.</li>
+        <li>Itérer <code>DoubleStreamBlock × depth</code> sur <code>(img_h, txt_h)</code> conditionnés par <code>vec, pe</code>.</li>
+        <li>Concaténer <code>[txt | img]</code>, puis <code>SingleStreamBlock × depth_single_blocks</code>.</li>
+        <li>Garder la tranche image et projeter via <code>LastLayer</code> → <code>out_channels</code>.</li>
+      </ol>
+    </section>
+
+    <section class="card" id="resources">
+      <h2>9) Ressources</h2>
+      <div class="chips">
+        <a class="chip" href="./text-to-image.md">Text to Image</a>
+        <a class="chip" href="./image-editing.md">Image Editing</a>
+        <a class="chip" href="./image-variation.md">Image Variation</a>
+        <a class="chip" href="./structural-conditioning.md">Structural Conditioning</a>
+        <a class="chip" href="./fill.md">In/Out Painting (Fill)</a>
+        <a class="chip" href="../src/flux/model.py">Code: src/flux/model.py</a>
+      </div>
+    </section>
+
+    <section class="card" id="credits">
+      <h2>Utilisation en présentation</h2>
+      <ol>
+        <li>Ouvrez ce fichier dans le navigateur (clic-droit → "Ouvrir avec Live Server" si vous utilisez VS Code).</li>
+        <li>Cliquez sur « Lancer l'animation » pour démarrer la séquence.</li>
+        <li>Activez le mode sombre via l'interrupteur en haut à droite.</li>
+      </ol>
+    </section>
+  </main>
+
+  <footer class="site-footer wrap">
+    <span>© 2025 — Présentation pédagogique du modèle FLUX</span>
+  </footer>
+
+  <script>
+    const body = document.body;
+    const playBtn = document.getElementById('playAll');
+    const themeToggle = document.getElementById('themeToggle');
+
+    // Déclenche les animations globales
+    const play = () => {
+      body.classList.add('play');
+      playBtn.disabled = true;
+      playBtn.textContent = 'Lecture…';
+    };
+    playBtn.addEventListener('click', play);
+    // Démarrage automatique léger
+    setTimeout(() => { if (!body.classList.contains('play')) play(); }, 800);
+
+    // Mode sombre/clair
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (prefersDark) { themeToggle.checked = true; body.classList.add('dark'); }
+    themeToggle.addEventListener('change', (e) => {
+      body.classList.toggle('dark', e.target.checked);
+    });
+
+    // Révèle les sections au scroll
+    const io = new IntersectionObserver((entries)=>{
+      for (const e of entries) {
+        if (e.isIntersecting) e.target.classList.add('in');
+      }
+    }, { threshold: 0.2 });
+    document.querySelectorAll('.card').forEach(el => io.observe(el));
+  </script>
+</body>
+</html>
